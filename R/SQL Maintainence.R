@@ -24,7 +24,8 @@ droptables <- function(con, tab) {
 #'@param keycols the colnums that will form indexes
 #'@export
 create_table  <- function(con, tab, colnams, coltypes, keycols, add_keycol = NULL) {
-  SQLstr <- paste("CREATE TABLE ", tab, '(', paste(paste(colnams, coltypes), collapse = ", "), ')')
+  SQLstr <- paste0("CREATE TABLE ", tab, ' (', paste(paste0('`', colnams, '` ', coltypes),
+                                                   collapse = ", "), ')')
   res <- RMySQL::dbSendQuery(con, SQLstr)
   dbClearResult(res)
 
@@ -70,7 +71,7 @@ create_table_df <- function(con, tab, df, keycols, unstr = TRUE) {
   } else {
      double_str_sz <- function(x) {
        sz <- gsub("[[:lower:]]|[[:punct:]]", "", x) %>% as.numeric() * 4
-       sz <- pmin(sz, 400)
+       sz <- pmin(pmax(sz, 20), 400)
        paste0('varchar(', sz, ")")
      }
      col_types_mod <- ifelse(grepl("varchar", col_types), double_str_sz(col_types), col_types)
