@@ -13,7 +13,8 @@ create_database <- function(con, DBname) {
 #' @param tab the table name string
 #' @export
 droptables <- function(con, tab) {
-  RMySQL::dbRemoveTable(con, tab)
+  sqlstrs <- paste0('DROP TABLE `', tab, '`;')
+  sqlstrs %>% purrr::map( function(x) RMySQL::dbSendQuery(con, x))
 }
 
 #'Create table
@@ -24,7 +25,7 @@ droptables <- function(con, tab) {
 #'@param keycols the colnums that will form indexes
 #'@export
 create_table  <- function(con, tab, colnams, coltypes, keycols, add_keycol = NULL) {
-  SQLstr <- paste0("CREATE TABLE ", tab, ' (', paste(paste0('`', colnams, '` ', coltypes),
+  SQLstr <- paste0("CREATE TABLE `", tab, '` (', paste(paste0('`', colnams, '` ', coltypes),
                                                    collapse = ", "), ')')
   res <- RMySQL::dbSendQuery(con, SQLstr)
   dbClearResult(res)
@@ -32,15 +33,19 @@ create_table  <- function(con, tab, colnams, coltypes, keycols, add_keycol = NUL
   if (!is.null(keycols)) {
     if (purrr::is_list(keycols)){
       (1:length(keycols)) %>% purrr::map(function(x) {
-        SQLstr <- paste(paste0("CREATE INDEX idx",  x), " on ", tab,
-                        "(", paste(c(keycols[[x]], add_keycol), collapse = ", "), ")")
+        SQLstr <- paste(paste0("CREATE INDEX idx",  x), " on `", tab,
+                        "` (", paste(
+                          paste0("`", c(keycols[[x]], add_keycol), "`"),
+                          collapse = ", "), ")")
         res <- RMySQL::dbSendQuery(con, SQLstr)
         dbClearResult(res)
       })
     } else {
       if (purrr::is_vector(keycols)){
-        SQLstr <- paste("CREATE INDEX idx on ", tab,
-                        "(", paste(c(keycols, add_keycol), collapse = ", "), ")")
+        SQLstr <- paste0("CREATE INDEX idx on `", tab,
+                        "` (", paste(
+                          paste0("`", c(keycols, add_keycol), "`"),
+                          collapse = ", "), ")")
         res <- RMySQL::dbSendQuery(con, SQLstr)
         dbClearResult(res)
       }
@@ -69,15 +74,17 @@ create_table_df <- function(con, tab, df, keycols, unstr = TRUE) {
         if (y == "FieldName") return('varchar(80)') else return('varchar(25)')
       }, x = col_types, y = col_names)
   } else {
-     double_str_sz <- function(x) {
+     double_str_sz <- function(x, fix_char = NULL) {
        sz <- gsub("[[:lower:]]|[[:punct:]]", "", x) %>% as.numeric() * 4
        sz <- pmin(pmax(sz, 20), 400)
-       paste0('varchar(', sz, ")")
+       if (is.null(fix_char)) return(paste0('varchar(', sz, ")")) else return(fix_char)
      }
-     col_types_mod <- ifelse(grepl("varchar", col_types), double_str_sz(col_types), col_types)
+     col_types_mod <- ifelse(grepl("varchar", col_types),
+                             double_str_sz(col_types), col_types)
   }
 
-  create_table(con, tab, colnams = col_names,  coltypes = col_types_mod, keycols = keycols)
+  create_table(con, tab, colnams = col_names,
+               coltypes = col_types_mod, keycols = keycols)
 }
 
 
