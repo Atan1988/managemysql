@@ -5,7 +5,7 @@
 create_database <- function(con, DBname) {
   SQLstr <- paste("CREATE DATABASE IF NOT EXISTS ", DBname)
   res <- RMySQL::dbSendQuery(con, SQLstr)
-  dbClearResult(res)
+  DBI::dbClearResult(res)
 }
 
 
@@ -17,7 +17,7 @@ droptables <- function(con, tab) {
   sqlstrs <- paste0('DROP TABLE `', tab, '`;')
   sqlstrs %>% purrr::map( function(x) {
     res <- RMySQL::dbSendQuery(con, x)
-    dbClearResult(res)
+    DBI::dbClearResult(res)
     })
 }
 
