@@ -99,12 +99,15 @@ create_table_df <- function(con, tab, df, keycols, unstr = TRUE) {
 #'@param file_loc the location to write the file to harddrive, when NULL it would be a temporary location on local drive
 #'@export
 insert_table_df <- function(con, tab, df, file_loc = NULL) {
-
+  tmp_folder <- tempdir()
   if(is.null(file_loc)) {
-    tmpfile <- tempfile(pattern = "file", tmpdir = tempdir(), fileext = ".txt")
+    tmpfile <- tempfile(pattern = "file", tmpdir = tmp_folder, fileext = ".txt")
   } else {
     tmpfile <- file_loc
   }
+
+  if (!dir.exists(tmp_folder)) dir.create(tmp_folder)
+
   write.table(df, tmpfile, row.names=FALSE, sep = "|", col.names = F)
 
   SQLstr <-  paste0("LOAD DATA LOCAL INFILE '", gsub("\\\\", "/", tmpfile), "' "
