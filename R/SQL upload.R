@@ -22,6 +22,7 @@ UPDATE_value <- function(con, tab, df, val_fields, pk_fields) {
 
   res <- DBI::dbSendQuery(con, upd_str)
   DBI::dbClearResult(res)
+
   droptables(con, tmp_tab)
 }
 
