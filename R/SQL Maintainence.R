@@ -4,7 +4,8 @@
 #'@export
 create_database <- function(con, DBname) {
   SQLstr <- paste("CREATE DATABASE IF NOT EXISTS ", DBname)
-  RMySQL::dbSendQuery(con, SQLstr)
+  res <- RMySQL::dbSendQuery(con, SQLstr)
+  dbClearResult(res)
 }
 
 
@@ -13,7 +14,11 @@ create_database <- function(con, DBname) {
 #' @param tab the table name string
 #' @export
 droptables <- function(con, tab) {
-  RMySQL::dbRemoveTable(con, tab)
+  sqlstrs <- paste0('DROP TABLE `', tab, '`;')
+  sqlstrs %>% purrr::map( function(x) {
+    res <- RMySQL::dbSendQuery(con, x)
+    dbClearResult(res)
+    })
 }
 
 #'Create table
@@ -24,25 +29,29 @@ droptables <- function(con, tab) {
 #'@param keycols the colnums that will form indexes
 #'@export
 create_table  <- function(con, tab, colnams, coltypes, keycols, add_keycol = NULL) {
-  SQLstr <- paste0("CREATE TABLE ", tab, ' (', paste(paste0('`', colnams, '` ', coltypes),
-                                                   collapse = ", "), ')')
+  SQLstr <- paste0("CREATE TABLE `", tab, '` (', paste(paste0('`', colnams, '` ', coltypes),
+                                                       collapse = ", "), ')')
   res <- RMySQL::dbSendQuery(con, SQLstr)
-  dbClearResult(res)
+  DBI::dbClearResult(res)
 
   if (!is.null(keycols)) {
     if (purrr::is_list(keycols)){
       (1:length(keycols)) %>% purrr::map(function(x) {
-        SQLstr <- paste(paste0("CREATE INDEX idx",  x), " on ", tab,
-                        "(", paste(c(keycols[[x]], add_keycol), collapse = ", "), ")")
+        SQLstr <- paste(paste0("CREATE INDEX idx",  x), " on `", tab,
+                        "` (", paste(
+                          paste0("`", c(keycols[[x]], add_keycol), "`"),
+                          collapse = ", "), ")")
         res <- RMySQL::dbSendQuery(con, SQLstr)
-        dbClearResult(res)
+        DBI::dbClearResult(res)
       })
     } else {
       if (purrr::is_vector(keycols)){
-        SQLstr <- paste("CREATE INDEX idx on ", tab,
-                        "(", paste(c(keycols, add_keycol), collapse = ", "), ")")
+        SQLstr <- paste0("CREATE INDEX idx on `", tab,
+                         "` (", paste(
+                           paste0("`", c(keycols, add_keycol), "`"),
+                           collapse = ", "), ")")
         res <- RMySQL::dbSendQuery(con, SQLstr)
-        dbClearResult(res)
+        DBI::dbClearResult(res)
       }
     }
   }
@@ -69,15 +78,17 @@ create_table_df <- function(con, tab, df, keycols, unstr = TRUE) {
         if (y == "FieldName") return('varchar(80)') else return('varchar(25)')
       }, x = col_types, y = col_names)
   } else {
-     double_str_sz <- function(x) {
-       sz <- gsub("[[:lower:]]|[[:punct:]]", "", x) %>% as.numeric() * 4
-       sz <- pmin(pmax(sz, 20), 400)
-       paste0('varchar(', sz, ")")
-     }
-     col_types_mod <- ifelse(grepl("varchar", col_types), double_str_sz(col_types), col_types)
+    double_str_sz <- function(x, fix_char = NULL) {
+      sz <- gsub("[[:lower:]]|[[:punct:]]", "", x) %>% as.numeric() * 4
+      sz <- pmin(pmax(sz, 20), 400)
+      if (is.null(fix_char)) return(paste0('varchar(', sz, ")")) else return(fix_char)
+    }
+    col_types_mod <- ifelse(grepl("varchar", col_types),
+                            double_str_sz(col_types), col_types)
   }
 
-  create_table(con, tab, colnams = col_names,  coltypes = col_types_mod, keycols = keycols)
+  create_table(con, tab, colnams = col_names,
+               coltypes = col_types_mod, keycols = keycols)
 }
 
 
@@ -97,13 +108,13 @@ insert_table_df <- function(con, tab, df, file_loc = NULL) {
   write.table(df, tmpfile, row.names=FALSE, sep = "|", col.names = F)
 
   SQLstr <-  paste0("LOAD DATA LOCAL INFILE '", gsub("\\\\", "/", tmpfile), "' "
-                  , "INTO TABLE ", tab, " "
-                  , "FIELDS TERMINATED by '|' "
-                  , "ENCLOSED BY '\"' "
-                  , "LINES TERMINATED BY '\\n'")
+                    , "INTO TABLE ", tab, " "
+                    , "FIELDS TERMINATED by '|' "
+                    , "ENCLOSED BY '\"' "
+                    , "LINES TERMINATED BY '\n'")
 
   resp <- RMySQL::dbSendQuery(con, SQLstr)
-
+  DBI::dbClearResult(resp)
   return(list(resp, SQLstr))
 }
 
@@ -116,7 +127,7 @@ insert_table_df <- function(con, tab, df, file_loc = NULL) {
 push_table_df <- function(con, tbl, df, keycols, ...) {
 
   if (!RMySQL::dbExistsTable(con, tolower(tbl))) create_table_df(con, tab = tbl, df = df,
-                                                        keycols = keycols, ...)
+                                                                 keycols = keycols, ...)
   insert_table_df(con, tab = tbl, df = df)
 }
 
@@ -137,12 +148,24 @@ push_table_by_chunck  <- function(con, tbl, df, keycols, ...) {
     dplyr::mutate(chunck = base::sample(seq_len(chuncks), size = n_df, replace = TRUE))
 
   for (i in seq_len(chuncks)) {
-    resp[[i]] <- managemysql::push_table_df(con = con, tbl = tbl,
-                               df = df %>%
-                                 dplyr::filter(chunck == i) %>%
-                                 dplyr::select(-chunck),
-                               keycols = keycols, ...
+    resp[[i]] <- push_table_df(con = con, tbl = tbl,
+                                            df = df %>%
+                                              dplyr::filter(chunck == i) %>%
+                                              dplyr::select(-chunck),
+                                            keycols = keycols, ...
     )
   }
+  return(resp)
+}
+
+#'show indexes of a table
+#'@param con the RMySQL connection
+#'@param tab the table name string
+#'@export
+show_indexes  <- function(con, tab) {
+  sql <- paste0('SHOW INDEX FROM ', tab)
+  res <- DBI::dbSendQuery(con, sql)
+  resp <- DBI::dbFetch(res)
+  dbClearResult(res)
   return(resp)
 }
