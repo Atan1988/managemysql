@@ -14,7 +14,7 @@ Imports:
     odbc,
     purrr,
     RMySQL,
-    purrr
+    pool
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 6.0.1
