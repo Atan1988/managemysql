@@ -108,13 +108,14 @@ insert_table_df <- function(con, tab, df, file_loc = NULL) {
 
   if (!dir.exists(tmp_folder)) dir.create(tmp_folder)
 
-  write.table(df, tmpfile, row.names=FALSE, sep = "|", col.names = F)
+  write.table(df, tmpfile, row.names=FALSE, sep = "|", col.names = F,
+              eol = "||")
 
   SQLstr <-  paste0("LOAD DATA LOCAL INFILE '", gsub("\\\\", "/", tmpfile), "' "
                     , "INTO TABLE ", tab, " "
                     , "FIELDS TERMINATED by '|' "
                     , "ENCLOSED BY '\"' "
-                    , "LINES TERMINATED BY '\n'")
+                    , "LINES TERMINATED BY '||'")
 
   resp <- RMySQL::dbSendQuery(con, SQLstr)
   DBI::dbClearResult(resp)
@@ -171,4 +172,32 @@ show_indexes  <- function(con, tab) {
   resp <- DBI::dbFetch(res)
   dbClearResult(res)
   return(resp)
+}
+
+
+
+#delete records based on another table
+#'@param con the RMySQL connection
+#'@param tab the table name string
+#'@param df the dataframe to delete
+#'@param keycols key columns
+#'@export
+delete_by_df  <- function(con, tab, df, keycols) {
+  temp_mapping <- paste0('temp_mapping',
+                         sample(letters, 10) %>% paste(collapse = ""))
+
+  RMySQL::dbWriteTable(con, temp_mapping,
+                         df %>% select_(.dots = keycols)
+                         , row.names = F)
+  sql_str <- paste0('delete `' , tab, '` from `', tab, '` INNER JOIN ', temp_mapping,
+                    ' ON ', paste0('`', tab, "`", ".", keycols, ' = `',
+                           temp_mapping, '`.', keycols ) %>%
+                      paste(collapse = " and ")
+  )
+  cat(sql_str, ' being run /n')
+  res <- DBI::dbSendQuery(con,  sql_str)
+  DBI::dbClearResult(res)
+
+  droptables(con, temp_mapping)
+  return(res)
 }
