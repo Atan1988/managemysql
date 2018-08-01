@@ -15,6 +15,7 @@ create_database <- function(con, DBname) {
 #' @export
 droptables <- function(con, tab) {
   sqlstrs <- paste0('DROP TABLE `', tab, '`;')
+
   sqlstrs %>% purrr::map( function(x) {
     res <- RMySQL::dbSendQuery(con, x)
     DBI::dbClearResult(res)
@@ -30,7 +31,8 @@ droptables <- function(con, tab) {
 #'@export
 create_table  <- function(con, tab, colnams, coltypes, keycols, add_keycol = NULL) {
   SQLstr <- paste0("CREATE TABLE `", tab, '` (', paste(paste0('`', colnams, '` ', coltypes),
-                                                       collapse = ", "), ')')
+                                       collapse = ", "), ')')
+
   res <- RMySQL::dbSendQuery(con, SQLstr)
   DBI::dbClearResult(res)
 
@@ -50,6 +52,7 @@ create_table  <- function(con, tab, colnams, coltypes, keycols, add_keycol = NUL
                          "` (", paste(
                            paste0("`", c(keycols, add_keycol), "`"),
                            collapse = ", "), ")")
+
         res <- RMySQL::dbSendQuery(con, SQLstr)
         DBI::dbClearResult(res)
       }

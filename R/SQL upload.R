@@ -20,6 +20,7 @@ UPDATE_value <- function(con, tab, df, val_fields, pk_fields) {
                                  pk_fields), collapse = " and "), ';'
   )
 
+
   res <- DBI::dbSendQuery(con, upd_str)
   DBI::dbClearResult(res)
 
