@@ -39,8 +39,8 @@ create_table  <- function(con, tab, colnams, coltypes, keycols, add_keycol = NUL
   if (!is.null(keycols)) {
     if (purrr::is_list(keycols)){
       (1:length(keycols)) %>% purrr::map(function(x) {
-        SQLstr <- paste(paste0("CREATE INDEX idx",  x), " on `", tab,
-                        "` (", paste(
+        SQLstr <- paste(paste0("CREATE INDEX idx",  x), " on ", paste0("`", tab, "`"),
+                        " (", paste(
                           paste0("`", c(keycols[[x]], add_keycol), "`"),
                           collapse = ", "), ")")
         res <- RMySQL::dbSendQuery(con, SQLstr)
