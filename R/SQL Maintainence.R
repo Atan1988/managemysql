@@ -69,7 +69,8 @@ create_table  <- function(con, tab, colnams, coltypes, keycols, add_keycol = NUL
 #'@param unstr determine the structure to be unstructured
 #'@export
 create_table_df <- function(con, tab, df, keycols, unstr = TRUE) {
-  col_types  <- dplyr::db_data_type(con, df)
+  #col_types  <- dplyr::db_data_type(con, df)
+  col_types <- RMariaDB::dbDataType(con, obj = df)
   col_names <- names(col_types)
 
   if (unstr) {
@@ -133,7 +134,7 @@ insert_table_df <- function(con, tab, df, file_loc = NULL) {
 #'@export
 push_table_df <- function(con, tbl, df, keycols, ...) {
 
-  if (!RMySQL::dbExistsTable(con, tolower(tbl))) create_table_df(con, tab = tbl, df = df,
+  if (!RMySQL::dbExistsTable(con, tolower(tbl)) & !RMySQL::dbExistsTable(con, tbl)) create_table_df(con, tab = tbl, df = df,
                                                                  keycols = keycols, ...)
   insert_table_df(con, tab = tbl, df = df)
 }
