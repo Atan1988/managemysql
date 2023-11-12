@@ -70,7 +70,7 @@ create_table  <- function(con, tab, colnams, coltypes, keycols, add_keycol = NUL
 #'@export
 create_table_df <- function(con, tab, df, keycols, unstr = TRUE) {
   #col_types  <- dplyr::db_data_type(con, df)
-  col_types <- RMariaDB::dbDataType(con, obj = df)
+  col_types <- RMariaDB::dbDataType(RMariaDB::MariaDB(), obj = df)
   col_names <- names(col_types)
 
   if (unstr) {

@@ -1,7 +1,7 @@
 Type: Package
 Package: managemysql
 Title: Manages R and MySQL utility
-Version: 0.1.0
+Version: 0.1.1
 Author: Allen Tan
 Maintainer: Allen Tan <tzw0423@hotmail.com>
 Description: More about what it does (maybe more than one line)
